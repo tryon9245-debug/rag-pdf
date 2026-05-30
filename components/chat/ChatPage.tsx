@@ -57,7 +57,7 @@ export function ChatPage() {
           </Link>
           <div className="min-w-0 flex-1 pt-0.5 text-center">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-              AI 문서 상담 서비스
+              AI 문서 기반 상담 서비스
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:text-base">
               업로드한 문서를 바탕으로 상담을 진행합니다

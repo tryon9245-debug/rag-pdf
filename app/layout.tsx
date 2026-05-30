@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI 문서 상담 서비스",
+  title: "AI 문서 기반 상담 서비스",
   description: "PDF 문서를 업로드하고 맞춤형 상담을 받아보세요",
 };
 
