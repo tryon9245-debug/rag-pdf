@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
+import { toPdfUploadErrorMessage } from "@/lib/documents/errors";
+import { uploadPdfAndCreateDocument } from "@/lib/documents/uploadPdf";
 import { formDataToSession, saveConsultationSession } from "@/lib/consultation/session";
 import { FormField, inputClassName } from "./FormField";
 import { PdfUploadField } from "./PdfUploadField";
@@ -26,6 +28,8 @@ export function ConsultationForm() {
   const [formData, setFormData] = useState<ConsultationFormData>(
     initialConsultationFormData,
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const updateField = <K extends keyof ConsultationFormData>(
     key: K,
@@ -51,10 +55,35 @@ export function ConsultationForm() {
     });
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    saveConsultationSession(formDataToSession(formData));
-    router.push("/chat");
+    setSubmitError(null);
+
+    const file = pdfFileRef.current;
+    if (!file || !formData.selectedPdf) {
+      const message = "PDF 파일을 선택해 주세요.";
+      setSubmitError(message);
+      window.alert(message);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { document, fileUrl } = await uploadPdfAndCreateDocument(file);
+
+      saveConsultationSession({
+        ...formDataToSession(formData),
+        documentId: document.id,
+        fileUrl,
+      });
+      router.push("/chat");
+    } catch (error) {
+      const message = toPdfUploadErrorMessage(error);
+      setSubmitError(message);
+      window.alert(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -120,11 +149,18 @@ export function ConsultationForm() {
         />
       </FormField>
 
+      {submitError ? (
+        <p className="text-sm text-red-600" role="alert">
+          {submitError}
+        </p>
+      ) : null}
+
       <button
         type="submit"
-        className="mt-2 w-full rounded-xl bg-indigo-600 px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-indigo-600/25 transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 active:bg-indigo-800"
+        disabled={isSubmitting}
+        className="mt-2 w-full rounded-xl bg-indigo-600 px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-indigo-600/25 transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 active:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        상담 시작하기
+        {isSubmitting ? "PDF 업로드 중…" : "상담 시작하기"}
       </button>
     </form>
   );
