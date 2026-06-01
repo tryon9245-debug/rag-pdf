@@ -126,6 +126,11 @@ export async function uploadPdfAndCreateDocument(
     );
   }
 
+  console.log("[documents:insert:success]", {
+    documentId: document.id,
+    fileName: document.file_name,
+  });
+
   return {
     document,
     storagePath,

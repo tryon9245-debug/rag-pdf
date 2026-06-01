@@ -3,16 +3,19 @@ import type { ConsultationSession } from "@/lib/consultation/types";
 
 type ChatSessionInfoProps = {
   session: ConsultationSession;
+  uploadFileStatus?: "ready" | "loading" | "error";
 };
 
 function InfoCard({
   label,
   value,
   className = "",
+  valueClassName = "text-slate-900",
 }: {
   label: string;
   value: string;
   className?: string;
+  valueClassName?: string;
 }) {
   return (
     <div
@@ -22,20 +25,34 @@ function InfoCard({
       ].join(" ")}
     >
       <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="mt-0.5 truncate text-sm font-medium text-slate-900">
+      <dd className={`mt-0.5 truncate text-sm font-medium ${valueClassName}`}>
         {value}
       </dd>
     </div>
   );
 }
 
-export function ChatSessionInfo({ session }: ChatSessionInfoProps) {
+export function ChatSessionInfo({
+  session,
+  uploadFileStatus = "ready",
+}: ChatSessionInfoProps) {
+  const uploadFileValueClassName =
+    uploadFileStatus === "error"
+      ? "text-red-600"
+      : uploadFileStatus === "loading"
+        ? "text-slate-500"
+        : "text-slate-900";
+
   return (
     <section className="mt-4 shrink-0">
       <h2 className="text-sm font-medium text-slate-700">상담 정보</h2>
       <dl className="mt-2 flex flex-col gap-2">
         <div className="flex gap-2">
-          <InfoCard label="업로드된 파일" value={session.pdfFileName} />
+          <InfoCard
+            label="업로드된 파일"
+            value={session.pdfFileName}
+            valueClassName={uploadFileValueClassName}
+          />
           <InfoCard label="이름" value={session.name} />
         </div>
         <div className="flex gap-2">

@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { toPdfUploadErrorMessage } from "@/lib/documents/errors";
+import { extractPdfTextFromFile } from "@/lib/documents/extractPdfText";
 import { uploadPdfAndCreateDocument } from "@/lib/documents/uploadPdf";
+import { backfillDocumentEmbeddingsFromApi } from "@/lib/embeddings/backfillDocumentEmbeddingsClient";
 import { formDataToSession, saveConsultationSession } from "@/lib/consultation/session";
 import { FormField, inputClassName } from "./FormField";
 import { PdfUploadField } from "./PdfUploadField";
@@ -21,6 +23,15 @@ const GENDER_OPTIONS: { value: Exclude<Gender, "">; label: string }[] = [
   { value: "other", label: "기타" },
 ];
 
+type SubmitStep = "idle" | "uploading" | "chunking" | "embedding";
+
+const SUBMIT_STEP_LABEL: Record<SubmitStep, string> = {
+  idle: "상담 시작하기",
+  uploading: "PDF 업로드 중 (1/3)",
+  chunking: "업로드 파일 청킹 중 (2/3)",
+  embedding: "임베딩 중 (3/3)",
+};
+
 export function ConsultationForm() {
   const router = useRouter();
   /** PDF File 원본 — formData와 별도로 ref에 보관 (React state 직렬화 이슈 방지) */
@@ -29,6 +40,7 @@ export function ConsultationForm() {
     initialConsultationFormData,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStep, setSubmitStep] = useState<SubmitStep>("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const updateField = <K extends keyof ConsultationFormData>(
@@ -68,21 +80,54 @@ export function ConsultationForm() {
     }
 
     setIsSubmitting(true);
+    setSubmitStep("uploading");
     try {
       const { document, fileUrl } = await uploadPdfAndCreateDocument(file);
+      let chunksSaved = 0;
+
+      try {
+        setSubmitStep("chunking");
+        const extraction = await extractPdfTextFromFile(file, document.id);
+        chunksSaved = extraction.chunksSaved ?? 0;
+        console.log("[pdf-text-extraction:client]", {
+          documentId: document.id,
+          textLength: extraction.textLength,
+          chunksSaved,
+        });
+      } catch (error) {
+        console.error("[pdf-text-extraction:client:error]", error);
+      }
+
+      if (chunksSaved > 0) {
+        try {
+          setSubmitStep("embedding");
+          const embedding = await backfillDocumentEmbeddingsFromApi(
+            document.id,
+            chunksSaved,
+          );
+          console.log("[embedding-backfill:client]", {
+            documentId: document.id,
+            processed: embedding.processed,
+            failed: embedding.failed,
+          });
+        } catch (error) {
+          console.error("[embedding-backfill:client:error]", error);
+        }
+      }
 
       saveConsultationSession({
         ...formDataToSession(formData),
         documentId: document.id,
         fileUrl,
       });
-      router.push("/chat");
+      router.push(`/chat?documentId=${encodeURIComponent(document.id)}`);
     } catch (error) {
       const message = toPdfUploadErrorMessage(error);
       setSubmitError(message);
       window.alert(message);
     } finally {
       setIsSubmitting(false);
+      setSubmitStep("idle");
     }
   };
 
@@ -160,7 +205,7 @@ export function ConsultationForm() {
         disabled={isSubmitting}
         className="mt-2 w-full rounded-xl bg-indigo-600 px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-indigo-600/25 transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 active:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isSubmitting ? "PDF 업로드 중…" : "상담 시작하기"}
+        {isSubmitting ? SUBMIT_STEP_LABEL[submitStep] : SUBMIT_STEP_LABEL.idle}
       </button>
     </form>
   );

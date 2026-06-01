@@ -42,9 +42,11 @@ export function readSupabasePublicEnv(): SupabasePublicEnv {
     );
   }
 
-  if (!anonKey.startsWith("eyJ")) {
+  const isPublicKey =
+    anonKey.startsWith("eyJ") || anonKey.startsWith("sb_publishable_");
+  if (!isPublicKey) {
     throw new Error(
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY는 API의 anon public 키(eyJ로 시작)여야 합니다. service_role 키는 사용하지 마세요.",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY는 API의 publishable 키(sb_publishable_로 시작) 또는 legacy anon public 키(eyJ로 시작)여야 합니다. secret/service_role 키는 사용하지 마세요.",
     );
   }
 

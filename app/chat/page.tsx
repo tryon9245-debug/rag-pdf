@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ChatPage } from "@/components/chat/ChatPage";
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function ChatRoutePage() {
-  return <ChatPage />;
+  return (
+    <Suspense fallback={null}>
+      <ChatPage />
+    </Suspense>
+  );
 }
