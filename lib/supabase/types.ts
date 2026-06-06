@@ -67,6 +67,7 @@ export type SearchChunksArgs = {
 
 export type SearchChunksResult = {
   content: string;
+  file_name: string | null;
   similarity: number;
 };
 

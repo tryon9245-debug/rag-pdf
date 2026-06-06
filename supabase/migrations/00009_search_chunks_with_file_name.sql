@@ -1,7 +1,9 @@
 -- =============================================================================
--- RPC for vector similarity search over document_chunks
--- Run after 00007_use_pgvector_for_document_chunks.sql
+-- Include source file name in search_chunks results
+-- Run after 00008_search_chunks_rpc.sql
 -- =============================================================================
+
+DROP FUNCTION IF EXISTS public.search_chunks(vector(768), int);
 
 CREATE OR REPLACE FUNCTION public.search_chunks(
   query_embedding vector(768),

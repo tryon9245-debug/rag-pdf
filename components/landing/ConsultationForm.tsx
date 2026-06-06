@@ -5,6 +5,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { toPdfUploadErrorMessage } from "@/lib/documents/errors";
 import { extractPdfTextFromFile } from "@/lib/documents/extractPdfText";
+import { getLatestDocumentByFileName } from "@/lib/documents/getDocument";
 import { uploadPdfAndCreateDocument } from "@/lib/documents/uploadPdf";
 import { backfillDocumentEmbeddingsFromApi } from "@/lib/embeddings/backfillDocumentEmbeddingsClient";
 import { formDataToSession, saveConsultationSession } from "@/lib/consultation/session";
@@ -83,6 +84,20 @@ export function ConsultationForm() {
     setIsSubmitting(true);
     setSubmitStep("uploading");
     try {
+      const existingDocument = await getLatestDocumentByFileName(file.name);
+      if (existingDocument) {
+        const message = "기존 파일명이 있습니다.";
+        setSubmitError(message);
+        window.alert(message);
+        saveConsultationSession({
+          ...formDataToSession(formData),
+          documentId: existingDocument.id,
+          fileUrl: existingDocument.file_url ?? undefined,
+        });
+        router.push(`/chat?documentId=${encodeURIComponent(existingDocument.id)}`);
+        return;
+      }
+
       const user = await createConsultationUser(formData);
       const { document, fileUrl } = await uploadPdfAndCreateDocument(file, {
         userId: user.id,

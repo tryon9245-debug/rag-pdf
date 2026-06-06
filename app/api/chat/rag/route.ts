@@ -30,11 +30,53 @@ function jsonResponse(body: RagAnswerResponse, init?: ResponseInit): Response {
 
 function buildContext(chunks: SearchChunksResult[]): string {
   return chunks
-    .map((chunk, index) => `Chunk ${index + 1}:\n${chunk.content}`)
+    .map(
+      (chunk, index) =>
+        `Chunk ${index + 1}:\n출처 파일명: ${chunk.file_name ?? "알 수 없음"}\n${chunk.content}`,
+    )
     .join("\n\n");
 }
 
-function buildPrompt(question: string, context: string): string {
+function getSourceFileNames(chunks: SearchChunksResult[]): string[] {
+  return Array.from(
+    new Set(
+      chunks
+        .map((chunk) => chunk.file_name?.trim())
+        .filter((fileName): fileName is string => Boolean(fileName)),
+    ),
+  );
+}
+
+function hasSourceLine(answer: string): boolean {
+  return /(^|\n)\s*출처\s*:/u.test(answer);
+}
+
+function appendSingleSourceIfNeeded(
+  answer: string,
+  sourceFileNames: string[],
+): string {
+  if (hasSourceLine(answer)) {
+    return answer;
+  }
+  if (sourceFileNames.length === 0) {
+    return `${answer}\n\n출처: 알 수 없음`;
+  }
+  if (sourceFileNames.length === 1) {
+    return `${answer}\n\n출처: ${sourceFileNames[0]}`;
+  }
+  return answer;
+}
+
+function buildPrompt(
+  question: string,
+  context: string,
+  sourceFileNames: string[],
+): string {
+  const sourceInstruction =
+    sourceFileNames.length <= 1
+      ? "답변 마지막에 출처 파일명을 한 번만 표시하세요."
+      : "답변이 여러 항목으로 나뉘면 각 답변 항목 바로 아래에 해당 출처 파일명을 표시하세요. 전체 답변 맨 아래에 출처를 한 번 더 반복하지 마세요.";
+
   return `당신은 문서 기반 상담 AI입니다.
 
 반드시 제공된 Context 안에서만 답변하세요.
@@ -42,6 +84,8 @@ function buildPrompt(question: string, context: string): string {
 Context에 없는 내용은 추측하지 말고
 '${NO_CONTEXT_MESSAGE}'
 라고 답변하세요.
+
+${sourceInstruction}
 
 Context:
 
@@ -74,7 +118,8 @@ async function generateAnswer(
   const ai = getGoogleEmbeddingClient();
   console.log("Building context");
   const context = buildContext(chunks);
-  const prompt = buildPrompt(question, context);
+  const sourceFileNames = getSourceFileNames(chunks);
+  const prompt = buildPrompt(question, context, sourceFileNames);
 
   console.log("Calling Gemini");
 
@@ -88,7 +133,7 @@ async function generateAnswer(
     throw new Error("Gemini가 빈 답변을 반환했습니다.");
   }
 
-  return answer;
+  return appendSingleSourceIfNeeded(answer, sourceFileNames);
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -161,6 +206,7 @@ export async function POST(request: Request): Promise<Response> {
     console.log("Top 5 chunks found", { count: chunks.length });
     for (const chunk of chunks) {
       console.log(`Similarity: ${chunk.similarity}`);
+      console.log(`Source file: ${chunk.file_name ?? "알 수 없음"}`);
       console.log("Chunk:");
       console.log(chunk.content);
       console.log("---");
