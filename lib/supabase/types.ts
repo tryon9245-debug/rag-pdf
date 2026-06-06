@@ -9,6 +9,17 @@ export type UserRow = {
   created_at: string;
 };
 
+export type UserInsert = {
+  id?: string;
+  name?: string | null;
+  age?: number | null;
+  gender?: string | null;
+  job?: string | null;
+  created_at?: string;
+};
+
+export type UserUpdate = Partial<UserInsert>;
+
 export type DocumentRow = {
   id: string;
   user_id: string | null;
@@ -54,8 +65,8 @@ export type Database = {
     Tables: {
       users: {
         Row: UserRow;
-        Insert: Partial<UserRow> & { id?: string };
-        Update: Partial<UserRow>;
+        Insert: UserInsert;
+        Update: UserUpdate;
         Relationships: [];
       };
       documents: {

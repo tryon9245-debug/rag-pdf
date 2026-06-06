@@ -8,6 +8,7 @@ import { extractPdfTextFromFile } from "@/lib/documents/extractPdfText";
 import { uploadPdfAndCreateDocument } from "@/lib/documents/uploadPdf";
 import { backfillDocumentEmbeddingsFromApi } from "@/lib/embeddings/backfillDocumentEmbeddingsClient";
 import { formDataToSession, saveConsultationSession } from "@/lib/consultation/session";
+import { createConsultationUser } from "@/lib/users/createUser";
 import { FormField, inputClassName } from "./FormField";
 import { PdfUploadField } from "./PdfUploadField";
 import {
@@ -82,7 +83,10 @@ export function ConsultationForm() {
     setIsSubmitting(true);
     setSubmitStep("uploading");
     try {
-      const { document, fileUrl } = await uploadPdfAndCreateDocument(file);
+      const user = await createConsultationUser(formData);
+      const { document, fileUrl } = await uploadPdfAndCreateDocument(file, {
+        userId: user.id,
+      });
       let chunksSaved = 0;
 
       try {
