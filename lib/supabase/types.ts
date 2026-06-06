@@ -63,6 +63,7 @@ export type DocumentChunkUpdate = Partial<DocumentChunkInsert>;
 export type SearchChunksArgs = {
   query_embedding: string;
   match_count: number;
+  similarity_threshold?: number;
 };
 
 export type SearchChunksResult = {

@@ -10,6 +10,7 @@ import type { SearchChunksResult } from "@/lib/supabase/types";
 export const runtime = "nodejs";
 
 const MATCH_COUNT = 5;
+const SIMILARITY_THRESHOLD = 0.7;
 const NO_CONTEXT_MESSAGE = "문서에서 해당 내용을 찾을 수 없습니다.";
 
 type RagAnswerResponse =
@@ -50,7 +51,7 @@ function getSourceFileNames(chunks: SearchChunksResult[]): string[] {
 function removeSourceLines(answer: string): string {
   return answer
     .split("\n")
-    .filter((line) => !/^\s*출처\s*:/u.test(line))
+    .filter((line) => !/^\s*출처(?:\s*파일명)?\s*:/u.test(line))
     .join("\n")
     .trim();
 }
@@ -61,9 +62,9 @@ function appendSourceFooter(
 ): string {
   const answerWithoutSources = removeSourceLines(answer);
   if (sourceFileNames.length === 0) {
-    return `${answerWithoutSources}\n\n출처: 알 수 없음`;
+    return `${answerWithoutSources}\n\n출처 : 알 수 없음`;
   }
-  return `${answerWithoutSources}\n\n출처: ${sourceFileNames.join(", ")}`;
+  return `${answerWithoutSources}\n\n출처 : ${sourceFileNames.join(", ")}`;
 }
 
 function buildPrompt(question: string, context: string): string {
@@ -92,6 +93,7 @@ async function searchChunks(
   const { data, error } = await supabase.rpc("search_chunks", {
     query_embedding: toPgVector(queryEmbedding),
     match_count: MATCH_COUNT,
+    similarity_threshold: SIMILARITY_THRESHOLD,
   });
 
   if (error) {
@@ -171,7 +173,10 @@ export async function POST(request: Request): Promise<Response> {
 
     let chunks: SearchChunksResult[];
     try {
-      console.log("Searching chunks");
+      console.log("Searching chunks", {
+        similarityThreshold: SIMILARITY_THRESHOLD,
+        matchCount: MATCH_COUNT,
+      });
       chunks = await searchChunks(queryEmbedding);
     } catch (error) {
       const message =
@@ -186,14 +191,21 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (chunks.length === 0) {
-      console.log("Top 5 chunks found", { count: 0 });
+      console.log("Relevant chunks found", {
+        count: 0,
+        similarityThreshold: SIMILARITY_THRESHOLD,
+      });
       return jsonResponse(
         { ok: false, error: NO_CONTEXT_MESSAGE, code: "no_results" },
         { status: 404 },
       );
     }
 
-    console.log("Top 5 chunks found", { count: chunks.length });
+    console.log("Relevant chunks found", {
+      count: chunks.length,
+      similarityThreshold: SIMILARITY_THRESHOLD,
+      maxCount: MATCH_COUNT,
+    });
     for (const chunk of chunks) {
       console.log(`Similarity: ${chunk.similarity}`);
       console.log(`Source file: ${chunk.file_name ?? "알 수 없음"}`);
