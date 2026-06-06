@@ -15,8 +15,7 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
           문서에 대해 궁금한 점을 질문해 보세요
         </p>
         <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-slate-500">
-          AI 답변은 아직 연결되지 않았습니다. 질문은 아래 입력창에서 보낼 수
-          있습니다.
+          질문하면 업로드한 문서를 바탕으로 답변합니다.
         </p>
       </div>
     );
@@ -24,13 +23,26 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
 
   return (
     <ul className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
-      {messages.map((message) => (
-        <li key={message.id} className="flex justify-end">
-          <div className="max-w-[90%] rounded-2xl rounded-br-md bg-indigo-600 px-3.5 py-2 text-xs leading-relaxed text-white shadow-md shadow-indigo-600/20">
-            {message.content}
-          </div>
-        </li>
-      ))}
+      {messages.map((message) => {
+        const isUser = message.role === "user";
+        return (
+          <li
+            key={message.id}
+            className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+          >
+            <div
+              className={[
+                "max-w-[90%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-xs leading-relaxed shadow-md",
+                isUser
+                  ? "rounded-br-md bg-indigo-600 text-white shadow-indigo-600/20"
+                  : "rounded-bl-md border border-slate-200 bg-white text-slate-800 shadow-slate-200/80",
+              ].join(" ")}
+            >
+              {message.content}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }

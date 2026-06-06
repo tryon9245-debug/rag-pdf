@@ -60,6 +60,16 @@ export type DocumentChunkInsert = {
 
 export type DocumentChunkUpdate = Partial<DocumentChunkInsert>;
 
+export type SearchChunksArgs = {
+  query_embedding: string;
+  match_count: number;
+};
+
+export type SearchChunksResult = {
+  content: string;
+  similarity: number;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -99,7 +109,12 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      search_chunks: {
+        Args: SearchChunksArgs;
+        Returns: SearchChunksResult[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

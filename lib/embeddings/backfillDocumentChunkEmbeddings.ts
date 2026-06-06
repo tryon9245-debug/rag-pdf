@@ -1,9 +1,12 @@
-import { GoogleGenAI } from "@google/genai";
+import {
+  createGoogleEmbedding,
+  getGoogleEmbeddingClient,
+  toPgVector,
+} from "@/lib/embeddings/googleEmbedding";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 100;
-const GOOGLE_EMBEDDING_DIMENSION = 768;
 
 type ChunkForEmbedding = {
   id: string;
@@ -30,43 +33,9 @@ export function normalizeEmbeddingBatchSize(limit?: number): number {
   return Math.min(Math.floor(limit), MAX_BATCH_SIZE);
 }
 
-async function createEmbedding(
-  ai: GoogleGenAI,
-  content: string,
-): Promise<number[]> {
-  const result = await ai.models.embedContent({
-    model: "gemini-embedding-001",
-    contents: content,
-    config: {
-      taskType: "RETRIEVAL_DOCUMENT",
-      outputDimensionality: GOOGLE_EMBEDDING_DIMENSION,
-    },
-  });
-
-  const embedding = result.embeddings?.[0]?.values ?? [];
-  if (embedding.length === 0) {
-    throw new Error("빈 embedding이 반환되었습니다.");
-  }
-  if (embedding.length !== GOOGLE_EMBEDDING_DIMENSION) {
-    throw new Error(
-      `Embedding 차원이 올바르지 않습니다. expected=${GOOGLE_EMBEDDING_DIMENSION}, actual=${embedding.length}`,
-    );
-  }
-  return embedding;
-}
-
-function toPgVector(values: number[]): string {
-  return `[${values.join(",")}]`;
-}
-
 export async function backfillDocumentChunkEmbeddings(
   options: BackfillDocumentChunkEmbeddingsOptions = {},
 ): Promise<BackfillDocumentChunkEmbeddingsResult> {
-  const apiKey = process.env.GOOGLE_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error("GOOGLE_API_KEY가 설정되어 있지 않습니다.");
-  }
-
   const batchSize = normalizeEmbeddingBatchSize(options.limit);
   const supabase = getSupabaseClient();
   let query = supabase
@@ -94,14 +63,18 @@ export async function backfillDocumentChunkEmbeddings(
     selected: pendingChunks.length,
   });
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = getGoogleEmbeddingClient();
   let processed = 0;
   let failed = 0;
 
   for (const [index, chunk] of pendingChunks.entries()) {
     console.log(`Processing chunk ${index + 1}/${pendingChunks.length}`);
     try {
-      const embedding = await createEmbedding(ai, chunk.content);
+      const embedding = await createGoogleEmbedding(
+        ai,
+        chunk.content,
+        "RETRIEVAL_DOCUMENT",
+      );
       console.log("Embedding generated", {
         chunkId: chunk.id,
         length: embedding.length,

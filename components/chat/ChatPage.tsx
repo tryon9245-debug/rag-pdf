@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PageCard, PageShell } from "@/components/layout/PageShell";
+import { createRagAnswer } from "@/lib/chat/ragAnswer";
 import { getConsultationSessionForChat } from "@/lib/consultation/session";
 import type { ConsultationSession } from "@/lib/consultation/types";
 import { getDocumentById } from "@/lib/documents/getDocument";
@@ -33,6 +34,7 @@ export function ChatPage() {
     isLoading: false,
   });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isAnswering, setIsAnswering] = useState(false);
 
   useEffect(() => {
     setSession(getConsultationSessionForChat());
@@ -86,16 +88,40 @@ export function ChatPage() {
     };
   }, [documentId]);
 
-  const handleQuestionSubmit = (question: string) => {
+  const appendMessage = (message: Omit<ChatMessage, "id" | "createdAt">) => {
     setMessages((prev) => [
       ...prev,
       {
         id: createMessageId(),
-        role: "user",
-        content: question,
+        ...message,
         createdAt: Date.now(),
       },
     ]);
+  };
+
+  const handleQuestionSubmit = (question: string) => {
+    appendMessage({ role: "user", content: question });
+    setIsAnswering(true);
+
+    createRagAnswer(question)
+      .then((result) => {
+        if (result.ok) {
+          appendMessage({ role: "assistant", content: result.answer });
+          return;
+        }
+
+        appendMessage({ role: "assistant", content: result.error });
+      })
+      .catch((error: unknown) => {
+        console.error("[rag-answer:client:error]", error);
+        appendMessage({
+          role: "assistant",
+          content: "답변 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+        });
+      })
+      .finally(() => {
+        setIsAnswering(false);
+      });
   };
 
   if (!session) {
@@ -155,7 +181,7 @@ export function ChatPage() {
           <ChatMessageList messages={messages} />
         </main>
 
-        <ChatInput onSubmit={handleQuestionSubmit} />
+        <ChatInput onSubmit={handleQuestionSubmit} disabled={isAnswering} />
       </PageCard>
     </PageShell>
   );
