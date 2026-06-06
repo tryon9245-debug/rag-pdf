@@ -10,7 +10,7 @@ import type { SearchChunksResult } from "@/lib/supabase/types";
 export const runtime = "nodejs";
 
 const MATCH_COUNT = 5;
-const SIMILARITY_THRESHOLD = 0.7;
+const SIMILARITY_THRESHOLD = 0.67;
 const NO_CONTEXT_MESSAGE = "문서에서 해당 내용을 찾을 수 없습니다.";
 
 type RagAnswerResponse =

@@ -9,7 +9,7 @@ DROP FUNCTION IF EXISTS public.search_chunks(vector(768), int, double precision)
 CREATE OR REPLACE FUNCTION public.search_chunks(
   query_embedding vector(768),
   match_count int DEFAULT 5,
-  similarity_threshold double precision DEFAULT 0.7
+  similarity_threshold double precision DEFAULT 0.67
 )
 RETURNS TABLE (
   content text,
