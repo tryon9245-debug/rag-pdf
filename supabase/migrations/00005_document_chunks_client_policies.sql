@@ -3,12 +3,14 @@
 -- Run after 00004_add_extracted_text_to_documents.sql
 -- =============================================================================
 
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
+
 CREATE TABLE IF NOT EXISTS public.document_chunks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid NOT NULL REFERENCES public.documents (id) ON DELETE CASCADE,
   chunk_index integer NOT NULL,
   content text NOT NULL,
-  embedding jsonb,
+  embedding_vector vector(768),
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT document_chunks_document_id_chunk_index_key
     UNIQUE (document_id, chunk_index)
@@ -41,7 +43,8 @@ CREATE POLICY "document_chunks_anon_delete"
   USING (true);
 
 DROP POLICY IF EXISTS "document_chunks_anon_update_embedding" ON public.document_chunks;
-CREATE POLICY "document_chunks_anon_update_embedding"
+DROP POLICY IF EXISTS "document_chunks_anon_update_embedding_vector" ON public.document_chunks;
+CREATE POLICY "document_chunks_anon_update_embedding_vector"
   ON public.document_chunks
   FOR UPDATE
   TO anon, authenticated

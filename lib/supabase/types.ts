@@ -45,7 +45,7 @@ export type DocumentChunkRow = {
   document_id: string;
   chunk_index: number;
   content: string;
-  embedding: number[] | null;
+  embedding_vector: string | null;
   created_at: string;
 };
 
@@ -54,7 +54,7 @@ export type DocumentChunkInsert = {
   document_id: string;
   chunk_index: number;
   content: string;
-  embedding?: number[] | null;
+  embedding_vector?: string | null;
   created_at?: string;
 };
 

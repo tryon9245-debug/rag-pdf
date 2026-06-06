@@ -3,6 +3,7 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 
 const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 100;
+const GOOGLE_EMBEDDING_DIMENSION = 768;
 
 type ChunkForEmbedding = {
   id: string;
@@ -38,7 +39,7 @@ async function createEmbedding(
     contents: content,
     config: {
       taskType: "RETRIEVAL_DOCUMENT",
-      outputDimensionality: 768,
+      outputDimensionality: GOOGLE_EMBEDDING_DIMENSION,
     },
   });
 
@@ -46,7 +47,16 @@ async function createEmbedding(
   if (embedding.length === 0) {
     throw new Error("빈 embedding이 반환되었습니다.");
   }
+  if (embedding.length !== GOOGLE_EMBEDDING_DIMENSION) {
+    throw new Error(
+      `Embedding 차원이 올바르지 않습니다. expected=${GOOGLE_EMBEDDING_DIMENSION}, actual=${embedding.length}`,
+    );
+  }
   return embedding;
+}
+
+function toPgVector(values: number[]): string {
+  return `[${values.join(",")}]`;
 }
 
 export async function backfillDocumentChunkEmbeddings(
@@ -62,7 +72,7 @@ export async function backfillDocumentChunkEmbeddings(
   let query = supabase
     .from("document_chunks")
     .select("id,document_id,chunk_index,content")
-    .is("embedding", null)
+    .is("embedding_vector", null)
     .order("created_at", { ascending: true })
     .order("chunk_index", { ascending: true })
     .limit(batchSize);
@@ -100,9 +110,9 @@ export async function backfillDocumentChunkEmbeddings(
 
       const { data: updatedChunk, error: updateError } = await supabase
         .from("document_chunks")
-        .update({ embedding })
+        .update({ embedding_vector: toPgVector(embedding) })
         .eq("id", chunk.id)
-        .is("embedding", null)
+        .is("embedding_vector", null)
         .select("id")
         .maybeSingle();
 
@@ -112,16 +122,17 @@ export async function backfillDocumentChunkEmbeddings(
       if (!updatedChunk) {
         console.log("[embedding-backfill:skip]", {
           chunkId: chunk.id,
-          reason: "embedding already exists",
+          reason: "embedding_vector already exists",
         });
         continue;
       }
 
       processed += 1;
-      console.log("Saved successfully", {
+      console.log("Embedding vector saved successfully", {
         chunkId: chunk.id,
         documentId: chunk.document_id,
         chunkIndex: chunk.chunk_index,
+        dimension: embedding.length,
       });
     } catch (error) {
       failed += 1;
